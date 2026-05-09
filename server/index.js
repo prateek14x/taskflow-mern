@@ -16,6 +16,9 @@ const port = process.env.PORT || 5000;
 
 const app = express();
 
+// Trust proxy - important for Railway
+app.set("trust proxy", 1);
+
 // CORS - MUST be first middleware
 app.use(cors({
   origin: true,
@@ -27,7 +30,7 @@ app.use(cors({
   maxAge: 3600,
 }));
 
-// Preflight requests
+// Handle preflight requests explicitly
 app.options("*", cors({
   origin: true,
   credentials: true,
@@ -35,6 +38,20 @@ app.options("*", cors({
   allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 200,
 }));
+
+// Manual CORS header middleware - backup for safety
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.header("Access-Control-Max-Age", "3600");
+  
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -61,6 +78,16 @@ app.get("/health", (req, res) => {
 // API routes
 app.use("/api", routes);
 
+// Catch-all route for debugging
+app.all("*", (req, res) => {
+  res.status(404).json({
+    message: "Route not found",
+    path: req.path,
+    method: req.method,
+    available: "/api and /health"
+  });
+});
+
 // Error handling
 app.use(routeNotFound);
 app.use(errorHandler);
@@ -78,4 +105,16 @@ process.on("SIGTERM", () => {
     console.log("Server closed");
     process.exit(0);
   });
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+  process.exit(1);
+});
+
+// Handle unhandled rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  process.exit(1);
 });
