@@ -17,7 +17,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001","https://teamtaskify.netlify.app"],
+    origin: ["http://localhost:3000", "http://localhost:3001","https://teamtaskify.netlify.app", "https://taskflow-mern-production-b7bb.up.railway.app"],
     methods: ["GET", "POST", "DELETE", "PUT"],
     credentials: true,
   })
