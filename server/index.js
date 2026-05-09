@@ -15,33 +15,25 @@ const port = process.env.PORT || 5000;
 
 const app = express();
 
-// CORS Configuration - Simplified for production
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "https://patient-warmth-production-c26d.up.railway.app",
-      "https://parcel-warmth-production-c26d.up.railway.app",
-      "https://taskflow-mern-production-b7bb.up.railway.app",
-    ];
-
-    // Allow if no origin (same server) or matches allowed
-    if (!origin || allowedOrigins.some(url => origin === url) || origin.includes("railway.app")) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all during debugging
-    }
-  },
+// CORS Configuration - Permissive for production
+app.use(cors({
+  origin: true,
   credentials: true,
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-  allowedHeaders: "Content-Type,Authorization",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["X-Total-Count"],
   optionsSuccessStatus: 200,
-};
+  maxAge: 3600,
+}));
 
-app.use(cors(corsOptions));
-
-// Preflight handler
-app.options("*", cors(corsOptions));
+// Explicit preflight handler
+app.options("*", cors({
+  origin: true,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 200,
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
