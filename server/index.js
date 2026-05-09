@@ -9,13 +9,14 @@ import dbConnection from "./utils/connectDB.js";
 
 dotenv.config();
 
-dbConnection();
+// Start database connection in the background (don't block server startup)
+dbConnection().catch(err => console.error("Database connection error:", err));
 
 const port = process.env.PORT || 5000;
 
 const app = express();
 
-// CORS Configuration - Permissive for production
+// CORS - MUST be first middleware
 app.use(cors({
   origin: true,
   credentials: true,
@@ -26,7 +27,7 @@ app.use(cors({
   maxAge: 3600,
 }));
 
-// Explicit preflight handler
+// Preflight requests
 app.options("*", cors({
   origin: true,
   credentials: true,
@@ -37,10 +38,9 @@ app.options("*", cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use(cookieParser());
 
-// Logging middleware for debugging
+// Logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   console.log("Origin:", req.get("origin"));
@@ -51,12 +51,31 @@ app.use(morgan("dev"));
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "Server is running", timestamp: new Date() });
+  res.status(200).json({ 
+    status: "Server is running", 
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV || "development"
+  });
 });
 
+// API routes
 app.use("/api", routes);
 
+// Error handling
 app.use(routeNotFound);
 app.use(errorHandler);
 
-app.listen(port, () => console.log(`Server listening on ${port}`));
+// Start server
+const server = app.listen(port, () => {
+  console.log(`\n✅ Server listening on port ${port}`);
+  console.log(`Health check: http://localhost:${port}/health\n`);
+});
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  server.close(() => {
+    console.log("Server closed");
+    process.exit(0);
+  });
+});
