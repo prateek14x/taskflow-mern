@@ -3,64 +3,25 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import morgan from "morgan";
-import { errorHandler, routeNotFound } from "./middleware/errorMiddleware.js";
-import routes from "./routes/index.js";
-import dbConnection from "./utils/connectDB.js";
 
 dotenv.config();
+
+console.log("🚀 Starting server...");
 
 const port = process.env.PORT || 5000;
 const app = express();
 
-// Trust proxy - important for Railway
-app.set("trust proxy", 1);
+// ============ CORS - FIRST ============
+app.use(cors({ origin: true, credentials: true }));
+app.options("*", cors({ origin: true, credentials: true }));
 
-// ============ CORS - MUST be first ============
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  exposedHeaders: ["X-Total-Count"],
-  optionsSuccessStatus: 200,
-  maxAge: 3600,
-}));
-
-// Preflight handler
-app.options("*", cors({
-  origin: true,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 200,
-}));
-
-// Manual CORS headers - backup
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
-  
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-// ============ Body parsers ============
+// ============ Parsers ============
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
-// ============ Logging ============
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
 app.use(morgan("dev"));
 
-// ============ Health check - MUST work ============
+// ============ Health endpoint - ALWAYS WORKS ============
 app.get("/health", (req, res) => {
   res.status(200).json({ 
     status: "OK", 
@@ -69,40 +30,55 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ============ API routes ============
-app.use("/api", routes);
-
-// ============ Error handling ============
-app.use(routeNotFound);
-app.use(errorHandler);
-
-// ============ START SERVER FIRST ============
+// ============ Start server FIRST ============
 const server = app.listen(port, () => {
-  console.log(`\n✅ SERVER STARTED ON PORT ${port}`);
-  console.log(`Health: http://localhost:${port}/health\n`);
-  
-  // THEN try to connect to database in background
-  console.log("Attempting to connect to MongoDB...");
-  dbConnection()
-    .then(() => console.log("✅ MongoDB Connected"))
-    .catch(err => console.error("⚠️ MongoDB Connection Error (non-fatal):", err.message));
+  console.log(`\n✅ EXPRESS SERVER LISTENING ON PORT ${port}`);
+  console.log(`📍 Test: http://localhost:${port}/health\n`);
 });
 
-// ============ Graceful shutdown ============
+// ============ Load routes asynchronously ============
+(async () => {
+  try {
+    console.log("📦 Loading modules...");
+    
+    const { default: routes } = await import("./routes/index.js");
+    const { errorHandler, routeNotFound } = await import("./middleware/errorMiddleware.js");
+    
+    console.log("✅ Modules loaded");
+    
+    app.use("/api", routes);
+    app.use(routeNotFound);
+    app.use(errorHandler);
+    
+    console.log("✅ Routes registered");
+  } catch (error) {
+    console.error("❌ Error loading routes:", error.message);
+    console.error(error);
+  }
+  
+  // Try database connection
+  try {
+    console.log("🔗 Connecting to MongoDB...");
+    const { default: dbConnection } = await import("./utils/connectDB.js");
+    const connected = await dbConnection();
+    if (connected) {
+      console.log("✅ MongoDB connected");
+    }
+  } catch (error) {
+    console.warn("⚠️ MongoDB error (non-critical):", error.message);
+  }
+})();
+
+// ============ Error handling ============
 process.on("SIGTERM", () => {
-  console.log("SIGTERM received, shutting down gracefully");
-  server.close(() => {
-    console.log("Server closed");
-    process.exit(0);
-  });
+  console.log("⚠️ SIGTERM received");
+  server.close(() => process.exit(0));
 });
 
 process.on("uncaughtException", (err) => {
   console.error("❌ Uncaught Exception:", err.message);
-  // Don't exit - keep server running
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error("❌ Unhandled Rejection:", reason);
-  // Don't exit - keep server running
 });
