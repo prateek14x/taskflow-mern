@@ -15,14 +15,24 @@ const port = process.env.PORT || 5000;
 
 const app = express();
 
+// CORS Configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://taskflow-mern-production-b7bb.up.railway.app",
+];
+
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001","https://teamtaskify.netlify.app", "https://taskflow-mern-production-b7bb.up.railway.app"],
-    methods: ["GET", "POST", "DELETE", "PUT"],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
