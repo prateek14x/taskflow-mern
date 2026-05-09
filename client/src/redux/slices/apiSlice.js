@@ -4,7 +4,10 @@ const API_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : "http://localhost:8800/api";
 
-const baseQuery = fetchBaseQuery({ baseUrl: API_URL });
+const baseQuery = fetchBaseQuery({ 
+  baseUrl: API_URL,
+  credentials: "include",
+});
 
 export const apiSlice = createApi({
   baseQuery,
