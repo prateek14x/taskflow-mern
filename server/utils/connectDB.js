@@ -2,11 +2,24 @@ import mongoose from "mongoose";
 
 const dbConnection = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    if (!process.env.MONGODB_URI) {
+      console.warn("⚠️ MONGODB_URI environment variable not set");
+      return false;
+    }
 
-    console.log("Database Connected");
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+
+    console.log("✅ Database Connected");
+    return true;
   } catch (error) {
-    console.log("DB Error: " + error);
+    console.error("❌ DB Connection Error:", error.message);
+    return false;
   }
 };
 
