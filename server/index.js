@@ -40,7 +40,20 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(cookieParser());
 
+// Logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log("Origin:", req.get("origin"));
+  next();
+});
+
 app.use(morgan("dev"));
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "Server is running", timestamp: new Date() });
+});
+
 app.use("/api", routes);
 
 app.use(routeNotFound);
